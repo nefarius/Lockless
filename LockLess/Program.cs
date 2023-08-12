@@ -345,15 +345,15 @@ internal class Program
             return;
         }
 
-        if (parsed.Arguments.ContainsKey("/process"))
+        if (parsed.Arguments.TryGetValue("/process", out string processArg))
         {
-            candidateProcesses = parsed.Arguments["/process"].Split(',');
+            candidateProcesses = processArg.Split(',');
         }
 
-        if (parsed.Arguments.ContainsKey("/copy"))
+        if (parsed.Arguments.TryGetValue("/copy", out string copyArg))
         {
             copyFile = true;
-            copyDestination = parsed.Arguments["/copy"];
+            copyDestination = copyArg;
         }
 
         if (targetFile == "all")
