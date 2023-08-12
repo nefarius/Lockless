@@ -237,7 +237,7 @@ internal class Program
         return new ProcessFileHandle();
     }
 
-    public static void CopyLockedFile(ProcessFileHandle fileHandle, string copyTo = "")
+    private static void CopyLockedFile(ProcessFileHandle fileHandle, string copyTo = "")
     {
         // Copies a locked file to a random temp file or the location specified
         //  -Opens the process with DuplicateHandle permissions
