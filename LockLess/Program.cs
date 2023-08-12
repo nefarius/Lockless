@@ -130,32 +130,29 @@ internal class Program
                         currentProcessHandle, out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
                     // check if this handle is on disk (a file) so things don't hang
-                    if (Kernel32.GetFileType(duplicatedHandle) == FileType.Disk)
+                    if (success && Kernel32.GetFileType(duplicatedHandle) != FileType.Pipe)
                     {
-                        if (success)
+                        int length2 = 0x200;
+                        IntPtr buffer = Marshal.AllocHGlobal(length2);
+
+                        // use NtQueryObject so we can get this object's name 
+                        NT_STATUS status = Ntdll.NtQueryObject(duplicatedHandle,
+                            OBJECT_INFORMATION_CLASS.ObjectNameInformation, buffer, length2, out dummy);
+
+                        if (status == NT_STATUS.STATUS_SUCCESS)
                         {
-                            int length2 = 0x200;
-                            IntPtr buffer = Marshal.AllocHGlobal(length2);
-
-                            // use NtQueryObject so we can get this object's name 
-                            NT_STATUS status = Ntdll.NtQueryObject(duplicatedHandle,
-                                OBJECT_INFORMATION_CLASS.ObjectNameInformation, buffer, length2, out dummy);
-
-                            if (status == NT_STATUS.STATUS_SUCCESS)
+                            OBJECT_NAME_INFORMATION temp = (OBJECT_NAME_INFORMATION)Marshal.PtrToStructure(buffer,
+                                typeof(OBJECT_NAME_INFORMATION));
+                            if (!string.IsNullOrEmpty(temp.Name.ToString()) &&
+                                !string.IsNullOrEmpty(temp.Name.ToString().Trim()))
+                                // only add the file/object to the results if it ends with our target file search pattern
                             {
-                                OBJECT_NAME_INFORMATION temp = (OBJECT_NAME_INFORMATION)Marshal.PtrToStructure(buffer,
-                                    typeof(OBJECT_NAME_INFORMATION));
-                                if (!string.IsNullOrEmpty(temp.Name.ToString()) &&
-                                    !string.IsNullOrEmpty(temp.Name.ToString().Trim()))
-                                    // only add the file/object to the results if it ends with our target file search pattern
-                                {
-                                    fileHandles.Add(info.HandleValue, temp.Name.ToString().Trim());
-                                }
+                                fileHandles.Add(info.HandleValue, temp.Name.ToString().Trim());
                             }
-
-                            // Console.WriteLine("[X] NtQueryObject status: {0}", status);
-                            Marshal.FreeHGlobal(buffer);
                         }
+
+                        // Console.WriteLine("[X] NtQueryObject status: {0}", status);
+                        Marshal.FreeHGlobal(buffer);
                     }
 
                     Kernel32.CloseHandle(duplicatedHandle);
@@ -230,8 +227,6 @@ internal class Program
         foreach (Process process in processes)
         {
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
-
-            Console.WriteLine($"Process {process} got {processHandle.Count} handles");
             
             foreach (KeyValuePair<int, string> handle in processHandle)
             {
