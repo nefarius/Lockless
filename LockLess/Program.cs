@@ -117,6 +117,12 @@ internal class Program
                         new IntPtr(offset),
                         typeof(SYSTEM_HANDLE_INFORMATION));
 
+                    // these can deadlock NtQueryObject and must be skipped
+                    if (info.GrantedAccess is 0x0012019f or 0x00120189 or 0x120089 or not 0x1A019F)
+                    {
+                        continue;
+                    }
+
                     // actually duplicate the handle so we can get its name
                     int dummy = 0;
                     IntPtr duplicatedHandle = new();
