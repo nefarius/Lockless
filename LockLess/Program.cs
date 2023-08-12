@@ -13,14 +13,14 @@ internal class Program
     {
         // adapted from https://stackoverflow.com/questions/860656/using-c-how-does-one-figure-out-what-process-locked-a-file
 
-        var networkDevicePrefix = "\\Device\\LanmanRedirector\\";
+        string networkDevicePrefix = "\\Device\\LanmanRedirector\\";
 
-        var logicalDrives = Environment.GetLogicalDrives();
-        var localDeviceMap = new Dictionary<string, string>(logicalDrives.Length);
-        var lpTargetPath = new StringBuilder(260);
-        foreach (var drive in logicalDrives)
+        string[] logicalDrives = Environment.GetLogicalDrives();
+        Dictionary<string, string> localDeviceMap = new(logicalDrives.Length);
+        StringBuilder lpTargetPath = new(260);
+        foreach (string drive in logicalDrives)
         {
-            var lpDeviceName = drive.Substring(0, 2);
+            string lpDeviceName = drive.Substring(0, 2);
             Kernel32.QueryDosDevice(lpDeviceName, lpTargetPath, 260);
             localDeviceMap.Add(NormalizeDeviceName(lpTargetPath.ToString()), lpDeviceName);
         }
@@ -33,12 +33,12 @@ internal class Program
     {
         // adapted from https://stackoverflow.com/questions/860656/using-c-how-does-one-figure-out-what-process-locked-a-file
 
-        var networkDevicePrefix = "\\Device\\LanmanRedirector\\";
+        string networkDevicePrefix = "\\Device\\LanmanRedirector\\";
 
         if (string.Compare(deviceName, 0, networkDevicePrefix, 0, networkDevicePrefix.Length,
                 StringComparison.InvariantCulture) == 0)
         {
-            var shareName = deviceName.Substring(deviceName.IndexOf('\\', networkDevicePrefix.Length) + 1);
+            string shareName = deviceName.Substring(deviceName.IndexOf('\\', networkDevicePrefix.Length) + 1);
             return string.Concat(networkDevicePrefix, shareName);
         }
 
@@ -47,17 +47,19 @@ internal class Program
 
     public static Dictionary<int, string> ConvertDevicePathsToDosPaths(Dictionary<int, string> devicePaths)
     {
-        var dosPaths = new Dictionary<int, string>();
+        Dictionary<int, string> dosPaths = new();
 
-        foreach (var devicePath in devicePaths)
+        foreach (KeyValuePair<int, string> devicePath in devicePaths)
         {
-            var deviceMap = BuildDeviceMap();
-            var i = devicePath.Value.Length;
+            Dictionary<string, string> deviceMap = BuildDeviceMap();
+            int i = devicePath.Value.Length;
             while (i > 0 && (i = devicePath.Value.LastIndexOf('\\', i - 1)) != -1)
             {
                 string drive;
                 if (deviceMap.TryGetValue(devicePath.Value.Substring(0, i), out drive))
+                {
                     dosPaths.Add(devicePath.Key, string.Concat(drive, devicePath.Value.Substring(i)));
+                }
             }
         }
 
@@ -66,10 +68,10 @@ internal class Program
 
     public static Dictionary<int, string> GetHandleNames(int targetPid)
     {
-        var fileHandles = new Dictionary<int, string>();
+        Dictionary<int, string> fileHandles = new();
 
-        var length = 0x10000;
-        var ptr = IntPtr.Zero;
+        int length = 0x10000;
+        IntPtr ptr = IntPtr.Zero;
 
         try
         {
@@ -79,7 +81,7 @@ internal class Program
                 int wantedLength;
 
                 // query for system handles we can read
-                var result = Ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation, ptr,
+                NT_STATUS result = Ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation, ptr,
                     length, out wantedLength);
                 if (result == NT_STATUS.STATUS_INFO_LENGTH_MISMATCH)
                 {
@@ -97,53 +99,58 @@ internal class Program
                 }
             }
 
-            var offset = ptr.ToInt64();
+            long offset = ptr.ToInt64();
             offset += IntPtr.Size;
-            var size = Marshal.SizeOf(typeof(SYSTEM_HANDLE_INFORMATION));
+            int size = Marshal.SizeOf(typeof(SYSTEM_HANDLE_INFORMATION));
 
-            var handleCount = IntPtr.Size == 4 ? Marshal.ReadInt32(ptr) : (int)Marshal.ReadInt64(ptr);
+            int handleCount = IntPtr.Size == 4 ? Marshal.ReadInt32(ptr) : (int)Marshal.ReadInt64(ptr);
 
             // open the target process for handle duplication
-            var processHandle = Kernel32.OpenProcess(ProcessAccessFlags.DuplicateHandle, true, (uint)targetPid);
-            var currentProcessHandle = Kernel32.GetCurrentProcess();
+            IntPtr processHandle = Kernel32.OpenProcess(ProcessAccessFlags.DuplicateHandle, true, (uint)targetPid);
+            IntPtr currentProcessHandle = Kernel32.GetCurrentProcess();
 
-            for (var i = 0; i < handleCount; i++)
+            for (int i = 0; i < handleCount; i++)
             {
                 if (Marshal.ReadInt32((IntPtr)offset) == targetPid)
                 {
-                    var info = (SYSTEM_HANDLE_INFORMATION)Marshal.PtrToStructure(new IntPtr(offset),
+                    SYSTEM_HANDLE_INFORMATION info = (SYSTEM_HANDLE_INFORMATION)Marshal.PtrToStructure(
+                        new IntPtr(offset),
                         typeof(SYSTEM_HANDLE_INFORMATION));
 
                     // actually duplicate the handle so we can get its name
-                    var dummy = 0;
-                    var duplicatedHandle = new IntPtr();
-                    var success = Kernel32.DuplicateHandle(processHandle, new IntPtr(info.HandleValue),
+                    int dummy = 0;
+                    IntPtr duplicatedHandle = new();
+                    bool success = Kernel32.DuplicateHandle(processHandle, new IntPtr(info.HandleValue),
                         currentProcessHandle, out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
                     // check if this handle is on disk (a file) so things don't hang
                     if (Kernel32.GetFileType(duplicatedHandle) == FileType.Disk)
+                    {
                         if (success)
                         {
-                            var length2 = 0x200;
-                            var buffer = Marshal.AllocHGlobal(length2);
+                            int length2 = 0x200;
+                            IntPtr buffer = Marshal.AllocHGlobal(length2);
 
                             // use NtQueryObject so we can get this object's name 
-                            var status = Ntdll.NtQueryObject(duplicatedHandle,
+                            NT_STATUS status = Ntdll.NtQueryObject(duplicatedHandle,
                                 OBJECT_INFORMATION_CLASS.ObjectNameInformation, buffer, length2, out dummy);
 
                             if (status == NT_STATUS.STATUS_SUCCESS)
                             {
-                                var temp = (OBJECT_NAME_INFORMATION)Marshal.PtrToStructure(buffer,
+                                OBJECT_NAME_INFORMATION temp = (OBJECT_NAME_INFORMATION)Marshal.PtrToStructure(buffer,
                                     typeof(OBJECT_NAME_INFORMATION));
                                 if (!string.IsNullOrEmpty(temp.Name.ToString()) &&
                                     !string.IsNullOrEmpty(temp.Name.ToString().Trim()))
                                     // only add the file/object to the results if it ends with our target file search pattern
+                                {
                                     fileHandles.Add(info.HandleValue, temp.Name.ToString().Trim());
+                                }
                             }
 
                             // Console.WriteLine("[X] NtQueryObject status: {0}", status);
                             Marshal.FreeHGlobal(buffer);
                         }
+                    }
 
                     Kernel32.CloseHandle(duplicatedHandle);
                 }
@@ -156,7 +163,9 @@ internal class Program
         finally
         {
             if (ptr != IntPtr.Zero)
+            {
                 Marshal.FreeHGlobal(ptr);
+            }
         }
 
         // convert all the paths to readable formats
@@ -167,16 +176,18 @@ internal class Program
     {
         // return a list of ALL file handles currently open
 
-        var handles = new List<ProcessFileHandle>();
-        var processes = Process.GetProcesses();
+        List<ProcessFileHandle> handles = new();
+        Process[] processes = Process.GetProcesses();
 
         // if we have specified process IDs to search for
-        foreach (var process in processes)
+        foreach (Process process in processes)
         {
-            var processHandle = GetHandleNames(process.Id);
+            Dictionary<int, string> processHandle = GetHandleNames(process.Id);
 
-            foreach (var handle in processHandle)
+            foreach (KeyValuePair<int, string> handle in processHandle)
+            {
                 handles.Add(new ProcessFileHandle(process.ProcessName, process.Id, handle.Value, handle.Key));
+            }
         }
 
         return handles;
@@ -186,31 +197,41 @@ internal class Program
     {
         // find a specific file that's open/locked by a process
 
-        var handleNames = new Dictionary<int, string>();
-        var processes = new List<Process>();
+        Dictionary<int, string> handleNames = new();
+        List<Process> processes = new();
 
         if (candidateProcesses == null)
         {
             // no candidate processes -> search all processes we can
-            foreach (var p in Process.GetProcesses())
+            foreach (Process p in Process.GetProcesses())
+            {
                 if (p.HandleCount != 0)
+                {
                     processes.Add(p);
+                }
+            }
         }
         else
         {
             // otherwise let's add all of the candidate processes we're looking for
-            foreach (var candidateProcess in candidateProcesses)
+            foreach (string candidateProcess in candidateProcesses)
+            {
                 processes.AddRange(Process.GetProcessesByName(candidateProcess));
+            }
         }
 
         // if we have specified process IDs to search for
-        foreach (var process in processes)
+        foreach (Process process in processes)
         {
-            var processHandle = GetHandleNames(process.Id);
+            Dictionary<int, string> processHandle = GetHandleNames(process.Id);
 
-            foreach (var handle in processHandle)
+            foreach (KeyValuePair<int, string> handle in processHandle)
+            {
                 if (handle.Value.EndsWith(targetFile, StringComparison.CurrentCultureIgnoreCase))
+                {
                     return new ProcessFileHandle(process.ProcessName, process.Id, handle.Value, handle.Key);
+                }
+            }
         }
 
         return new ProcessFileHandle();
@@ -226,13 +247,15 @@ internal class Program
         //  -Writes the mapped data to the new temp file
 
         // open the target process with "duplicate handle" permissions
-        var processHandle = Kernel32.OpenProcess(ProcessAccessFlags.DuplicateHandle, true, (uint)fileHandle.ProcessID);
-        var currentProcessHandle = Kernel32.GetCurrentProcess();
+        IntPtr processHandle =
+            Kernel32.OpenProcess(ProcessAccessFlags.DuplicateHandle, true, (uint)fileHandle.ProcessID);
+        IntPtr currentProcessHandle = Kernel32.GetCurrentProcess();
 
-        var duplicatedHandle = new IntPtr();
+        IntPtr duplicatedHandle = new();
 
         // duplicate the specific file handle opened by the process locking it
-        var success = Kernel32.DuplicateHandle(processHandle, new IntPtr(fileHandle.FileHandleID), currentProcessHandle,
+        bool success = Kernel32.DuplicateHandle(processHandle, new IntPtr(fileHandle.FileHandleID),
+            currentProcessHandle,
             out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
         if (success)
@@ -241,14 +264,19 @@ internal class Program
             Kernel32.GetFileSizeEx(duplicatedHandle, out fileSize);
 
             // create a file mapping with the duplicated handle
-            var mappedPtr = Kernel32.CreateFileMapping(duplicatedHandle, IntPtr.Zero, FileMapProtection.PageReadonly, 0,
+            IntPtr mappedPtr = Kernel32.CreateFileMapping(duplicatedHandle, IntPtr.Zero, FileMapProtection.PageReadonly,
+                0,
                 0, null);
 
             // map the entire file into memory
-            var mappedViewPtr = Kernel32.MapViewOfFile(mappedPtr, FileMapAccess.FileMapRead, 0, 0, 0);
+            IntPtr mappedViewPtr = Kernel32.MapViewOfFile(mappedPtr, FileMapAccess.FileMapRead, 0, 0, 0);
 
             // generate a temporary file name if a target isn't specified
-            if (string.IsNullOrEmpty(copyTo)) copyTo = Path.GetTempFileName();
+            if (string.IsNullOrEmpty(copyTo))
+            {
+                copyTo = Path.GetTempFileName();
+            }
+
             Console.WriteLine($"[*] Copying to: {copyTo}");
 
             // create the temporary file to copy to
@@ -257,7 +285,7 @@ internal class Program
             //  FILE_SHARE_READ = 0x00000001
             //  FILE_SHARE_WRITE = 0x00000002
             //  CREATE_ALWAYS = 0x00000002
-            var tempFilePtr = Kernel32.CreateFile(copyTo, 0x80000000 | 0x40000000, 0x00000001 | 0x00000002,
+            IntPtr tempFilePtr = Kernel32.CreateFile(copyTo, 0x80000000 | 0x40000000, 0x00000001 | 0x00000002,
                 (IntPtr)null, 0x00000002, 0, (IntPtr)null);
             // write out the memory mapped file to the new temp file
             uint written = 0;
@@ -282,10 +310,10 @@ internal class Program
 
     private static void Main(string[] args)
     {
-        var parsed = ArgumentParser.Parse(args);
+        ArgumentParserResult parsed = ArgumentParser.Parse(args);
         string[] candidateProcesses = null;
-        var copyFile = false;
-        var copyDestination = "";
+        bool copyFile = false;
+        string copyDestination = "";
 
         if (parsed.ParsedOk == false)
         {
@@ -309,7 +337,7 @@ internal class Program
             return;
         }
 
-        var targetFile = args.Length != 0 ? args[0] : "";
+        string targetFile = args.Length != 0 ? args[0] : "";
 
         if (string.IsNullOrEmpty(targetFile))
         {
@@ -317,7 +345,10 @@ internal class Program
             return;
         }
 
-        if (parsed.Arguments.ContainsKey("/process")) candidateProcesses = parsed.Arguments["/process"].Split(',');
+        if (parsed.Arguments.ContainsKey("/process"))
+        {
+            candidateProcesses = parsed.Arguments["/process"].Split(',');
+        }
 
         if (parsed.Arguments.ContainsKey("/copy"))
         {
@@ -329,23 +360,28 @@ internal class Program
         {
             Console.WriteLine("ProcessName,ProcessID,FileHandleID,FileName");
 
-            var handles = GetAllFileHandles();
+            List<ProcessFileHandle> handles = GetAllFileHandles();
 
-            foreach (var handle in handles)
+            foreach (ProcessFileHandle handle in handles)
+            {
                 Console.WriteLine($"{handle.ProcessName},{handle.ProcessID},{handle.FileHandleID},{handle.FileName}");
+            }
         }
         else
         {
             Console.WriteLine($"\r\n[*] Searching processes for an open handle to \"{targetFile}\"");
 
-            var foundHandle = FindFileHandle(targetFile, candidateProcesses);
+            ProcessFileHandle foundHandle = FindFileHandle(targetFile, candidateProcesses);
 
             if (foundHandle.ProcessID != 0)
             {
                 Console.WriteLine(
                     $"[+] Process \"{foundHandle.ProcessName}\" ({foundHandle.ProcessID}) has a file handle (ID {foundHandle.FileHandleID}) to \"{foundHandle.FileName}\"");
 
-                if (copyFile) CopyLockedFile(foundHandle, copyDestination);
+                if (copyFile)
+                {
+                    CopyLockedFile(foundHandle, copyDestination);
+                }
             }
             else
             {
