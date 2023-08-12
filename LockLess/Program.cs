@@ -9,7 +9,7 @@ namespace LockLess;
 
 internal class Program
 {
-    public static Dictionary<string, string> BuildDeviceMap()
+    private static Dictionary<string, string> BuildDeviceMap()
     {
         // adapted from https://stackoverflow.com/questions/860656/using-c-how-does-one-figure-out-what-process-locked-a-file
 
@@ -29,7 +29,7 @@ internal class Program
         return localDeviceMap;
     }
 
-    public static string NormalizeDeviceName(string deviceName)
+    private static string NormalizeDeviceName(string deviceName)
     {
         // adapted from https://stackoverflow.com/questions/860656/using-c-how-does-one-figure-out-what-process-locked-a-file
 
@@ -45,7 +45,7 @@ internal class Program
         return deviceName;
     }
 
-    public static Dictionary<int, string> ConvertDevicePathsToDosPaths(Dictionary<int, string> devicePaths)
+    private static Dictionary<int, string> ConvertDevicePathsToDosPaths(Dictionary<int, string> devicePaths)
     {
         Dictionary<int, string> dosPaths = new();
 
@@ -66,7 +66,7 @@ internal class Program
         return dosPaths;
     }
 
-    public static Dictionary<int, string> GetHandleNames(int targetPid)
+    private static Dictionary<int, string> GetHandleNames(int targetPid)
     {
         Dictionary<int, string> fileHandles = new();
 
@@ -172,7 +172,7 @@ internal class Program
         return ConvertDevicePathsToDosPaths(fileHandles);
     }
 
-    public static List<ProcessFileHandle> GetAllFileHandles()
+    private static List<ProcessFileHandle> GetAllFileHandles()
     {
         // return a list of ALL file handles currently open
 
@@ -193,7 +193,7 @@ internal class Program
         return handles;
     }
 
-    public static ProcessFileHandle FindFileHandle(string targetFile, string[] candidateProcesses = null)
+    private static ProcessFileHandle FindFileHandle(string targetFile, string[] candidateProcesses = null)
     {
         // find a specific file that's open/locked by a process
 
@@ -302,7 +302,7 @@ internal class Program
         Kernel32.CloseHandle(processHandle);
     }
 
-    public static void Usage()
+    private static void Usage()
     {
         Console.WriteLine(
             "\r\n  LockLess.exe <file.ext | all> [/process:NAME1,NAME2,...] [/copy | /copy:C:\\Temp\\file.ext]\r\n");
