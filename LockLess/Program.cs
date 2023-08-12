@@ -118,7 +118,7 @@ internal class Program
                         typeof(SYSTEM_HANDLE_INFORMATION));
 
                     // these can deadlock NtQueryObject and must be skipped
-                    if (info.GrantedAccess is 0x0012019f or 0x00120189 or 0x120089 or not 0x1A019F)
+                    if (info.GrantedAccess is 0x1A019F or 0x100000 or 0x100081)
                     {
                         continue;
                     }
@@ -231,6 +231,8 @@ internal class Program
         {
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
 
+            Console.WriteLine($"Process {process} got {processHandle.Count} handles");
+            
             foreach (KeyValuePair<int, string> handle in processHandle)
             {
                 if (handle.Value.EndsWith(targetFile, StringComparison.CurrentCultureIgnoreCase))
