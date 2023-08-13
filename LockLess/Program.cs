@@ -130,7 +130,7 @@ internal class Program
                         currentProcessHandle, out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
                     // check if this handle is on disk (a file) so things don't hang
-                    if (success && Kernel32.GetFileType(duplicatedHandle) != FileType.Pipe)
+                    if (success && Kernel32.GetFileType(duplicatedHandle) == FileType.Disk)
                     {
                         int length2 = 0x200;
                         IntPtr buffer = Marshal.AllocHGlobal(length2);
