@@ -213,19 +213,12 @@ internal class Program
     {
         // find a specific file that's open/locked by a process
 
-        Dictionary<int, string> handleNames = new();
         List<Process> processes = new();
 
         if (candidateProcesses == null)
         {
             // no candidate processes -> search all processes we can
-            foreach (Process p in Process.GetProcesses())
-            {
-                if (p.HandleCount != 0)
-                {
-                    processes.Add(p);
-                }
-            }
+            processes.AddRange(Process.GetProcesses().Where(p => p.HandleCount != 0));
         }
         else
         {
