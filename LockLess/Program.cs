@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace LockLess;
 
@@ -186,11 +189,10 @@ internal class Program
     {
         // return a list of ALL file handles currently open
 
-        List<ProcessFileHandle> handles = new();
+        ConcurrentBag<ProcessFileHandle> handles = new();
         Process[] processes = Process.GetProcesses();
 
-        // if we have specified process IDs to search for
-        foreach (Process process in processes)
+        Parallel.ForEach(processes, process =>
         {
             Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
 
@@ -202,9 +204,9 @@ internal class Program
             {
                 handles.Add(new ProcessFileHandle(process.ProcessName, process.Id, handle.Value, handle.Key));
             }
-        }
+        });
 
-        return handles;
+        return handles.ToList();
     }
 
     private static ProcessFileHandle FindFileHandle(string targetFile, string[] candidateProcesses = null)
@@ -235,7 +237,7 @@ internal class Program
         }
 
         // if we have specified process IDs to search for
-        foreach (Process process in processes)
+        return processes.AsParallel().Select(process =>
         {
             Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
 
@@ -250,9 +252,9 @@ internal class Program
                     return new ProcessFileHandle(process.ProcessName, process.Id, handle.Value, handle.Key);
                 }
             }
-        }
-
-        return new ProcessFileHandle();
+            
+            return new ProcessFileHandle();
+        }).Distinct().First();
     }
 
     private static void CopyLockedFile(ProcessFileHandle fileHandle, string copyTo = "")
