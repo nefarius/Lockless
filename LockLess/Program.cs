@@ -117,7 +117,7 @@ internal class Program
                         new IntPtr(offset),
                         typeof(SYSTEM_HANDLE_INFORMATION));
 
-                    // these can deadlock NtQueryObject and must be skipped
+                    // these can deadlock GetFileType/NtQueryObject and must be skipped
                     if (info.GrantedAccess is 0x1A019F or 0x100000 or 0x100081)
                     {
                         continue;
@@ -130,7 +130,7 @@ internal class Program
                         currentProcessHandle, out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
                     // check if this handle is on disk (a file) so things don't hang
-                    if (success && Kernel32.GetFileType(duplicatedHandle) != FileType.Pipe)
+                    if (success && Kernel32.GetFileType(duplicatedHandle) == FileType.Disk)
                     {
                         int length2 = 0x200;
                         IntPtr buffer = Marshal.AllocHGlobal(length2);
@@ -185,7 +185,11 @@ internal class Program
         // if we have specified process IDs to search for
         foreach (Process process in processes)
         {
+            Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
+            
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
+            
+            Debug.WriteLine($"Got {processHandle.Count} handles for process {process.ProcessName} ({process.Id})");
 
             foreach (KeyValuePair<int, string> handle in processHandle)
             {
@@ -226,7 +230,11 @@ internal class Program
         // if we have specified process IDs to search for
         foreach (Process process in processes)
         {
+            Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
+            
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
+            
+            Debug.WriteLine($"Got {processHandle.Count} handles for process {process.ProcessName} ({process.Id})");
             
             foreach (KeyValuePair<int, string> handle in processHandle)
             {
