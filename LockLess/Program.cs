@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -373,6 +374,9 @@ internal class Program
             copyDestination = copyArg;
         }
 
+        var sw = Stopwatch.StartNew();
+        Debug.WriteLine($"Search started at {DateTime.Now.ToString(CultureInfo.CurrentCulture)}");
+
         if (targetFile == "all")
         {
             Console.WriteLine("ProcessName,ProcessID,FileHandleID,FileName");
@@ -405,5 +409,8 @@ internal class Program
                 Console.WriteLine($"[X] Handle not found for \"{targetFile}\"");
             }
         }
+        
+        sw.Stop();
+        Debug.WriteLine($"Search finished at {DateTime.Now.ToString(CultureInfo.CurrentCulture)} after {sw.Elapsed}");
     }
 }
