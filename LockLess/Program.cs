@@ -125,9 +125,15 @@ internal class Program
 
                     // actually duplicate the handle so we can get its name
                     int dummy = 0;
-                    IntPtr duplicatedHandle = new();
-                    bool success = Kernel32.DuplicateHandle(processHandle, new IntPtr(info.HandleValue),
-                        currentProcessHandle, out duplicatedHandle, 0, false, DuplicateOptions.DUPLICATE_SAME_ACCESS);
+                    bool success = Kernel32.DuplicateHandle(
+                        processHandle,
+                        new IntPtr(info.HandleValue),
+                        currentProcessHandle,
+                        out IntPtr duplicatedHandle,
+                        0,
+                        false,
+                        DuplicateOptions.DUPLICATE_SAME_ACCESS
+                    );
 
                     // check if this handle is on disk (a file) so things don't hang
                     if (success && Kernel32.GetFileType(duplicatedHandle) == FileType.Disk)
@@ -186,9 +192,9 @@ internal class Program
         foreach (Process process in processes)
         {
             Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
-            
+
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
-            
+
             Debug.WriteLine($"Got {processHandle.Count} handles for process {process.ProcessName} ({process.Id})");
 
             foreach (KeyValuePair<int, string> handle in processHandle)
@@ -231,11 +237,11 @@ internal class Program
         foreach (Process process in processes)
         {
             Debug.WriteLine($"Enumerating process {process.ProcessName} ({process.Id})");
-            
+
             Dictionary<int, string> processHandle = GetHandleNames(process.Id);
-            
+
             Debug.WriteLine($"Got {processHandle.Count} handles for process {process.ProcessName} ({process.Id})");
-            
+
             foreach (KeyValuePair<int, string> handle in processHandle)
             {
                 if (handle.Value.EndsWith(targetFile, StringComparison.CurrentCultureIgnoreCase))
